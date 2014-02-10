@@ -88,7 +88,11 @@ void echoBackUart(void) {
     int16       ch;
     
     if ((ch = getch()) >= 0) {
-        LCD_PutChar(ch);                        // LCDに受信データを表示
+        if (ch == '\014') {                     // ctrl+L
+            LCD_ClearDisplay();                 // LCDをクリア
+        } else {
+            LCD_PutChar(ch);                    // LCDに受信データを表示
+        }
         putch(ch);                              // 確認用に受信したデータを送信
     }
 }
