@@ -75,6 +75,9 @@ int16 getch(void) {
     int_uartQueue_Disable();
     if (uartRxIndex < uartRxCount) {            // 受信キューに文字があるか確認
         ch = uartRxQueue[uartRxIndex++];        // 受信キューから一文字取り出す
+        if (ch == '\r') {                       // 行末文字の変換処理
+            ch = '\n';
+        }
     }
     int_uartQueue_Enable();
     return ch;
