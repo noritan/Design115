@@ -31,13 +31,13 @@ DefaultDestDir=12
 [SourceDisksNames]
 
 [DeviceList.NTx86]
-%DESCRIPTION%=DriverInstall, USB\VID_04B4&PID_F232
+%DESCRIPTION%=DriverInstall, USB\VID_04B4&PID_F232&MI_00
 
 [DeviceList.NTia64]
-%DESCRIPTION%=DriverInstall, USB\VID_04B4&PID_F232
+%DESCRIPTION%=DriverInstall, USB\VID_04B4&PID_F232&MI_00
 
 [DeviceList.NTamd64]
-%DESCRIPTION%=DriverInstall, USB\VID_04B4&PID_F232
+%DESCRIPTION%=DriverInstall, USB\VID_04B4&PID_F232&MI_00
 
 
 ;------------------------------------------------------------------------------
