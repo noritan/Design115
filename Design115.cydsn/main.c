@@ -15,21 +15,44 @@
 #define     MSC_IN      (4)
 #define     MSC_OUT     (5)
 
-void echoBackUart(void) {
+static void putch_sub(const int16 ch) {
+    uint8   txBuffer[1];
+    
+    txBuffer[0] = ch;
+	while (!USBUART_CDCIsReady());	            // 送信バッファが空か確認
+    USBUART_PutData(txBuffer, 1);		        // 確認用に受信したデータを送信
+}
+
+// USBUARTに一文字送る
+void putch(const int16 ch) {
+    if (ch == '\n') {
+        putch_sub('\r');
+    }
+    putch_sub(ch);
+}
+
+// USBUARTから一文字受け取る
+int16 getch(void) {
+    int16   ch = -1;
 	uint8   rxmessage[64];
 	uint8   length;
-    uint8   i;
 
     if (USBUART_DataIsReady()) {                // PCからのデータ受信待ち
         length = USBUART_GetCount();            // 受信したデータ長の取得
         USBUART_GetData(rxmessage, length);     // 受信データを取得
+        ch = rxmessage[0];
+    }
+    return ch;
+}
 
-        for (i = 0; i < length; i++) {
-            LCD_PutChar(rxmessage[i]);		    // LCDに受信データを表示
-        }
-		while (!USBUART_CDCIsReady());	        //送信バッファが空か確認
-	    USBUART_PutData(rxmessage, length);		//確認用に受信したデータを送信
-	}
+// USBUARTのエコーバック処理
+void echoBackUart(void) {
+    int16       ch;
+    
+    if ((ch = getch()) >= 0) {
+        LCD_PutChar(ch);                        // LCDに受信データを表示
+        putch(ch);                              // 確認用に受信したデータを送信
+    }
 }
 
 int main()
