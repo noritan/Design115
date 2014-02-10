@@ -15,12 +15,49 @@
 #define     MSC_IN      (4)
 #define     MSC_OUT     (5)
 
+// USBUARTのパケットサイズ
+#define     UART_TX_QUEUE_SIZE      (64)
+#define     UART_RX_QUEUE_SIZE      (64)
+
+// USBUARTのTXキューバッファ
+uint8       uartTxQueue[UART_TX_QUEUE_SIZE];    // TXキュー
+uint8       uartTxCount = 0;                    // TXキューに存在するデータ数
+CYBIT       uartZlpRequired = 0;                // 要ZLPフラグ
+
+// USBUARTのRXキューバッファ
+uint8       uartRxQueue[UART_RX_QUEUE_SIZE];    // RXキュー
+uint8       uartRxCount = 0;                    // RXキューに存在するデータ数
+uint8       uartRxIndex = 0;                    // RXキューからの取り出し位置
+
+// 周期的にUSBUARTの送受信を監視する
+CY_ISR(int_uartQueue_isr) {
+    // 送信制御
+    if ((uartTxCount > 0) || uartZlpRequired) {
+        // バッファのデータを出力する
+        if (USBUART_CDCIsReady()) {
+            USBUART_PutData(uartTxQueue, uartTxCount);
+            uartZlpRequired = (uartTxCount == UART_TX_QUEUE_SIZE);
+            uartTxCount = 0;
+        }
+    }
+    // 受信制御
+    if (uartRxIndex >= uartRxCount) {
+        // 空の入力バッファにデータを受け取る
+        if (USBUART_DataIsReady()) {
+            uartRxCount = USBUART_GetAll(uartRxQueue);
+            uartRxIndex = 0;
+        }
+    }
+}
+
 static void putch_sub(const int16 ch) {
-    uint8   txBuffer[1];
-    
-    txBuffer[0] = ch;
-	while (!USBUART_CDCIsReady());	            // 送信バッファが空か確認
-    USBUART_PutData(txBuffer, 1);		        // 確認用に受信したデータを送信
+    for (;;) {                                  // 送信キューが空くまで待つ
+        int_uartQueue_Disable();
+        if (uartTxCount < UART_TX_QUEUE_SIZE) break;
+        int_uartQueue_Enable();
+    }
+    uartTxQueue[uartTxCount++] = ch;            // 送信キューに一文字入れる
+    int_uartQueue_Enable();
 }
 
 // USBUARTに一文字送る
@@ -33,15 +70,13 @@ void putch(const int16 ch) {
 
 // USBUARTから一文字受け取る
 int16 getch(void) {
-    int16   ch = -1;
-	uint8   rxmessage[64];
-	uint8   length;
-
-    if (USBUART_DataIsReady()) {                // PCからのデータ受信待ち
-        length = USBUART_GetCount();            // 受信したデータ長の取得
-        USBUART_GetData(rxmessage, length);     // 受信データを取得
-        ch = rxmessage[0];
+    int16 ch = -1;
+    
+    int_uartQueue_Disable();
+    if (uartRxIndex < uartRxCount) {            // 受信キューに文字があるか確認
+        ch = uartRxQueue[uartRxIndex++];        // 受信キューから一文字取り出す
     }
+    int_uartQueue_Enable();
     return ch;
 }
 
@@ -57,9 +92,10 @@ void echoBackUart(void) {
 
 int main()
 {
-	CyGlobalIntEnable;                          // 割り込みの有効化    
-	LCD_Start();                                // LCDの初期化
+    CyGlobalIntEnable;                          // 割り込みの有効化    
+    LCD_Start();                                // LCDの初期化
     USBUART_Start(0, USBUART_5V_OPERATION);     // 動作電圧5VにてUSBFSコンポーネントを初期化
+    int_uartQueue_StartEx(int_uartQueue_isr);   // 周期割り込みの設定
 
     for (;;) {
         // 初期化終了まで待機
