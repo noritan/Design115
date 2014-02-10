@@ -11,6 +11,10 @@
 */
 #include <project.h>
 
+// MSCインターフェイスのエンドポイント番号
+#define     MSC_IN      (4)
+#define     MSC_OUT     (5)
+
 void echoBackUart(void) {
 	uint8   rxmessage[64];
 	uint8   length;
