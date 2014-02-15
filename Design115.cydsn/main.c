@@ -154,6 +154,21 @@ void putdec16(uint16 num, const uint8 nDigits) {
     }
 }
 
+// 十六進数表
+static char8 const CYCODE hex[] = "0123456789ABCDEF";
+
+// 8-bit十六進数の表示
+void puthex8(uint8 num) {
+    putch(hex[num >> 4]);
+    putch(hex[num & 0x0F]);
+}
+
+// 16-bit十六進数の表示
+void puthex16(uint16 num) {
+    puthex8(num >> 8);
+    puthex8(num);
+}
+
 // USBUARTに文字列を送り込む
 void putstr(const char *s) {
     // 行末まで表示する
@@ -176,6 +191,8 @@ void echoBackUart(void) {
         }
         putch(ch);                              // 確認用に受信したデータを送信
         if (ch == '\n') {
+            puthex16(lineCount);                // 改行ごとに十六進の数値を表示する
+            putstr("-");                        // 区切り文字
             putdec16(lineCount++, 3);           // 改行ごとに数値を表示する
             putstr(" %");                       // プロンプトの表示
         }
