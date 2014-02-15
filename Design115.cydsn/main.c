@@ -97,6 +97,13 @@ void echoBackUart(void) {
     }
 }
 
+// USBUARTに文字列を送り込む
+void putstr(const char *s) {
+    while (*s) {
+        putch(*s++);
+    }
+}
+
 int main()
 {
     CyGlobalIntEnable;                          // 割り込みの有効化    
