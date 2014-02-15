@@ -84,7 +84,7 @@ int16 getch(void) {
 }
 
 // 32-bit十進数表
-static uint32 CYCODE pow10_32[11] = {
+static uint32 CYCODE pow10_32[] = {
     0L,
     1L,
     10L,
@@ -121,6 +121,39 @@ void putdec32(uint32 num, const uint8 nDigits) {
     }
 }
 
+// 16-bit十進数表
+static uint16 CYCODE pow10_16[] = {
+    0L,
+    1L,
+    10L,
+    100L,
+    1000L,
+    10000L,
+};
+
+// 16-bit数値の十進表示 - ZERO SUPPRESS は省略。
+void putdec16(uint16 num, const uint8 nDigits) {
+    uint8       i;
+    uint8       k;
+    CYBIT       show = 0;
+
+    // 表示すべき桁数
+    i = sizeof pow10_16 / sizeof pow10_16[0];
+    while (i > 0) {             // 一の位まで表示する
+        // i桁目の数値を得る
+        for (k = 0; num >= pow10_16[i]; k++) {
+            num -= pow10_16[i];
+        }
+        // 表示すべきか判断する
+        show = show || (i <= nDigits) || (k != 0);
+        // 必要なら表示する
+        if (show) {
+            putch(k + '0');     // 着目桁の表示
+        }
+        i--;
+    }
+}
+
 // USBUARTに文字列を送り込む
 void putstr(const char *s) {
     while (*s) {
@@ -128,7 +161,7 @@ void putstr(const char *s) {
     }
 }
 
-static uint32       lineCount = 0;
+static uint16       lineCount = 0;
 
 // USBUARTのエコーバック処理
 void echoBackUart(void) {
@@ -142,7 +175,7 @@ void echoBackUart(void) {
         }
         putch(ch);                              // 確認用に受信したデータを送信
         if (ch == '\n') {
-            putdec32(lineCount++, 3);           // 改行ごとに数値を表示する
+            putdec16(lineCount++, 3);           // 改行ごとに数値を表示する
             putstr(" %");                       // プロンプトの表示
         }
     }
