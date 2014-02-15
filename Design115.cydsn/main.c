@@ -84,7 +84,7 @@ int16 getch(void) {
 }
 
 // 32-bit十進数表
-static uint32 CYCODE pow10_32[] = {
+static const uint32 CYCODE pow10_32[] = {
     0L,
     1L,
     10L,
@@ -122,7 +122,7 @@ void putdec32(uint32 num, const uint8 nDigits) {
 }
 
 // 16-bit十進数表
-static uint16 CYCODE pow10_16[] = {
+static const uint16 CYCODE pow10_16[] = {
     0L,
     1L,
     10L,
