@@ -156,6 +156,7 @@ void putdec16(uint16 num, const uint8 nDigits) {
 
 // USBUARTに文字列を送り込む
 void putstr(const char *s) {
+    // 行末まで表示する
     while (*s) {
         putch(*s++);
     }
