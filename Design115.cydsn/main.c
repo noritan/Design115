@@ -106,7 +106,7 @@ void putdec32(uint32 num, const uint8 nDigits) {
 
     // 表示すべき桁数
     i = sizeof pow10_32 / sizeof pow10_32[0];
-    while (i > 0) {             // 一の位まで表示する
+    while (--i > 0) {             // 一の位まで表示する
         // i桁目の数値を得る
         for (k = 0; num >= pow10_32[i]; k++) {
             num -= pow10_32[i];
@@ -117,7 +117,6 @@ void putdec32(uint32 num, const uint8 nDigits) {
         if (show) {
             putch(k + '0');     // 着目桁の表示
         }
-        i--;
     }
 }
 
@@ -139,7 +138,7 @@ void putdec16(uint16 num, const uint8 nDigits) {
 
     // 表示すべき桁数
     i = sizeof pow10_16 / sizeof pow10_16[0];
-    while (i > 0) {             // 一の位まで表示する
+    while (--i > 0) {             // 一の位まで表示する
         // i桁目の数値を得る
         for (k = 0; num >= pow10_16[i]; k++) {
             num -= pow10_16[i];
@@ -150,7 +149,6 @@ void putdec16(uint16 num, const uint8 nDigits) {
         if (show) {
             putch(k + '0');     // 着目桁の表示
         }
-        i--;
     }
 }
 
