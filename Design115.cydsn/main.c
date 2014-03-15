@@ -197,6 +197,14 @@ void echoBackUart(void) {
     }
 }
 
+// MSCデバイスの初期設定
+void mscInit(void) {
+}
+
+// MSCデバイスのステートマシン
+void mscDispatch(void) {
+}
+
 int main()
 {
     CyGlobalIntEnable;                          // 割り込みの有効化    
@@ -212,6 +220,8 @@ int main()
 
         USBUART_CDC_Init();                     // USBFSのCDCコンポーネントを初期化
 
+        mscInit();                              // MSC デバイスの初期設定
+
         for (;;) {
             // 設定が変更されたら、再初期化をおこなう
             if (USBUART_IsConfigurationChanged()) {
@@ -220,6 +230,9 @@ int main()
             
             // UARTのエコーバック処理
             echoBackUart();
+            
+            // MSCデバイスのステートマシン
+            mscDispatch();
 
             // SWをLEDにコピーする処理
             LED4_Write(SW2_Read());
