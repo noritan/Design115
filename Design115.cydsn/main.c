@@ -197,10 +197,18 @@ void echoBackUart(void) {
     }
 }
 
+// MSCデバイスのステートマシン宣言
+typedef enum MscState_ {
+    MSCST_CBW_WAIT = 0,                         // CBWパケット待ち
+}   MscState;
+
+MscState    mscState;                           // 状態変数
+
 // MSCデバイスの初期設定
 void mscInit(void) {
     putstr("\n\n*** MSC Started ***\n");        // Opening message
     USBUART_EnableOutEP(MSC_OUT);               // MSCのEndpointを開く
+    mscState = MSCST_CBW_WAIT;                  // MSCデバイスの初期状態
 }
 
 // MSCデバイスのステートマシン
