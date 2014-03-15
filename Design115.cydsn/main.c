@@ -211,8 +211,44 @@ void mscInit(void) {
     mscState = MSCST_CBW_WAIT;                  // MSCデバイスの初期状態
 }
 
+uint8       cbw[31];                            // CBWの受信バッファ
+
+// CBWを表示する
+void mscShowCbw(
+    uint16      length
+) {
+    uint8       i;
+    
+    putstr("\nCBW:");
+    for (i = 0; i < length; i++) {
+        putch(' ');
+        puthex8(cbw[i]);
+    }
+}
+
+// CBW待ち状態の処理
+void mscCbwWait(void) {
+    uint16      length;
+    
+    if (USBUART_GetEPState(MSC_OUT) & USBUART_OUT_BUFFER_FULL) {
+        // パケット長を取得
+        length = USBUART_GetEPCount(MSC_OUT);
+        
+        // CBWデータを読み込む
+        USBUART_ReadOutEP(MSC_OUT, &cbw[0], length);
+
+        // CBWデータを表示する
+        mscShowCbw(length);
+    }
+}
+
 // MSCデバイスのステートマシン
 void mscDispatch(void) {
+    switch (mscState) {
+        case MSCST_CBW_WAIT:
+            mscCbwWait();
+            break;
+    }
 }
 
 int main()
