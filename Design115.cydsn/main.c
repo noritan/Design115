@@ -199,6 +199,8 @@ void echoBackUart(void) {
 
 // MSCデバイスの初期設定
 void mscInit(void) {
+    putstr("\n\n*** MSC Started ***\n");        // Opening message
+    USBUART_EnableOutEP(MSC_OUT);               // MSCのEndpointを開く
 }
 
 // MSCデバイスのステートマシン
@@ -219,8 +221,10 @@ int main()
         USBUART_IsConfigurationChanged();       // CHANGEフラグを確実にクリアする
 
         USBUART_CDC_Init();                     // USBFSのCDCコンポーネントを初期化
+        
+        while (SW2_Read());                     // SW2が押されるまで接続を待つ
 
-        mscInit();                              // MSC デバイスの初期設定
+        mscInit();                              // MSCデバイスの初期設定
 
         for (;;) {
             // 設定が変更されたら、再初期化をおこなう
