@@ -399,6 +399,7 @@ void mscCbwParse(void) {
         case SCSI_READ_CAPACITY_10:
             if (mscScsiReadCapacityPrepare()) return;
             break;
+        case SCSI_READ_10:
         default:
             if (cbw[12]) {
                 mscScsiUnknownIn();
