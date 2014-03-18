@@ -330,7 +330,8 @@ void mscScsiInquiryPrepare(void) {
 void mscScsiInvalidCommand(void) {
     senseData[ 0] = 0x70;               // Response Code = Current error
     senseData[ 2] = 0x05;               // SenseKey = ILLEGAL REQUEST
-    senseData[12] = 0x20;               // Additional Sense Code = INVALID COMMAND
+    senseData[12] = 0x20;               // ASC = INVALID COMMAND OPCODE
+    senseData[13] = 0x00;               // ASCQ = INVALID COMMAND OPCODE
 }
 
 // REQUEST SENSEコマンド応答
