@@ -197,6 +197,9 @@ void echoBackUart(void) {
     }
 }
 
+// MSCデバイスの定数宣言
+#define         EP_SIZE         (64)
+
 // MSCデバイスのステートマシン宣言
 typedef enum MscState_ {
     MSCST_CBW_WAIT = 0,                 // CBWパケット待ち
@@ -233,11 +236,22 @@ uint8       cbw[31];                            // CBWの受信バッファ
 uint8       csw[13] = {'U', 'S', 'B', 'S'};     // CSWの送信バッファ
 uint32      mscCbwDataTransferLength;           // CBWのデータ転送長
 uint8       mscBufferIn[64];                    // Bulk-in転送のバッファ
-uint8       mscBufferInLength;                  // Bulk-inバッファ内のデータ長
+uint32      mscBufferInLength;                  // Bulk-inバッファ内のデータ長
+uint32      mscScsiAddress;                     // 外部記憶アドレスポインタ
 
-// フィールドから32ビットの値を取り出す
-uint32 mscGetValue32(uint8 *s) {
+// CBWフィールドから32ビットの値を取り出す
+uint32 mscCbwGetValue32(uint8 *s) {
     return ((((uint32)((((uint16)s[3])<<8)|s[2])<<8)|s[1])<<8)|s[0];
+}
+
+// SCSIフィールドから32ビットの値を取り出す
+uint32 mscScsiGetValue32(uint8 *s) {
+    return ((((uint32)((((uint16)s[0])<<8)|s[1])<<8)|s[2])<<8)|s[3];
+}
+
+// SCSIフィールドから16ビットの値を取り出す
+uint16 mscScsiGetValue16(uint8 *s) {
+    return (((uint16)s[0])<<8)|s[1];
 }
 
 // フィールドに32ビットの値を書込む
@@ -350,6 +364,7 @@ static uint8 const CYCODE capacityData[8] = {
     0x00, 0x00, 0x03, 0xFF,             // 1024Blocks
     0x00, 0x00, 0x01, 0x00,             // 256Bytes/Block
 };
+#define         SECTOR_SIZE             (256)
 
 // CAPACITYデータの準備
 void mscScsiReadCapacityPrepare(void) {
@@ -397,6 +412,60 @@ void mscScsiBufferInSet(void) {
     mscState = MSCST_CSW_PREPARE;
 }
 
+// READ(10)コマンド応答
+void mscScsiRead10Prepare(void) {
+    uint32      lba;
+    
+    mscScsiSenseDataInit();
+    lba = mscScsiGetValue32(&cbw[17]);
+    mscScsiAddress = lba * SECTOR_SIZE;
+    mscBufferInLength = mscScsiGetValue16(&cbw[22]) * SECTOR_SIZE;
+    if (mscBufferInLength > mscCbwDataTransferLength) {
+        mscScsiInvalidCommand();
+        mscBufferInLength = 0;
+        csw[12] = 1;
+    }
+    mscState = MSCST_IN_WAIT;
+}
+
+void mscScsiRead10Set(void) {
+    uint8       size;
+    uint8       i;
+    
+    // 送信すべきデータ長の計算
+    if (mscBufferInLength >= EP_SIZE) {
+        size = EP_SIZE;
+    } else {
+        size = mscBufferInLength;
+    }
+    // Null sector
+    for (i = 0; i < size; i++) {
+        mscBufferIn[i] = 0x00;
+    }
+    // バッファを送信する
+    USBUART_LoadInEP(MSC_IN, &mscBufferIn[0], size);
+    putstr("\nSend READ(10) : ");
+    putdec16(size, 1);
+    mscCbwDataTransferLength -= size;
+    mscBufferInLength -= size;
+    // データ長の矛盾
+    if (mscCbwDataTransferLength > 0) {
+        if (mscBufferInLength > 0) {
+            mscState = MSCST_IN_WAIT;
+        } else {
+            csw[12] = 1;
+            mscState = MSCST_CSW_PREPARE;
+        }
+    } else {
+        if (mscBufferInLength > 0) {
+            csw[12] = 1;
+            mscState = MSCST_CSW_PREPARE;
+        } else {
+            mscState = MSCST_CSW_PREPARE;
+        }
+    }
+}
+
 // 未対応OUT命令応答
 void mscScsiUnknownOutPrepare(void) {
 }
@@ -423,7 +492,7 @@ void mscCbwWait(void) {
         mscShowCbw();
         
         // データ転送長を保存
-        mscCbwDataTransferLength = mscGetValue32(&cbw[8]);
+        mscCbwDataTransferLength = mscCbwGetValue32(&cbw[8]);
         putstr("\nDataTransferLength=");
         putdec32(mscCbwDataTransferLength, 0);
     
@@ -452,6 +521,8 @@ void mscInPrepare(void) {
             mscScsiReadCapacityPrepare();
             break;
         case SCSI_READ_10:
+            mscScsiRead10Prepare();
+            break;
         default:
             mscScsiUnknownInPrepare();
             break;
@@ -475,6 +546,8 @@ void mscInSet(void) {
             mscScsiBufferInSet();
             break;
         case SCSI_READ_10:
+            mscScsiRead10Set();
+            break;
         default:
             mscScsiBufferInSet();
             break;
