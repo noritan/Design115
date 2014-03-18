@@ -313,7 +313,7 @@ static uint8 const CYCODE inquiryData[36u] = {
 };
 
 // INQUIRYコマンド応答
-uint8 mscScsiInquiryPrepare(void) {
+void mscScsiInquiryPrepare(void) {
     uint8       i;
     
     mscScsiSenseDataInit();
@@ -325,7 +325,6 @@ uint8 mscScsiInquiryPrepare(void) {
         csw[12] = 1;
     }
     mscState = MSCST_IN_WAIT;
-    return 1;
 }
 
 // 未対応命令へのエラー応答
@@ -336,7 +335,7 @@ void mscScsiInvalidCommand(void) {
 }
 
 // REQUEST SENSEコマンド応答
-uint8 mscScsiRequestSensePrepare(void) {
+void mscScsiRequestSensePrepare(void) {
     uint8       i;
     
     mscBufferInLength = sizeof senseData;
@@ -344,7 +343,6 @@ uint8 mscScsiRequestSensePrepare(void) {
         mscBufferIn[i] = senseData[i];
     }
     mscState = MSCST_IN_WAIT;
-    return 1;
 }
 
 // CAPACITY 256Byte*1024Block=256kByte
@@ -354,7 +352,7 @@ static uint8 const CYCODE capacityData[8] = {
 };
 
 // CAPACITYデータの準備
-uint8 mscScsiReadCapacityPrepare(void) {
+void mscScsiReadCapacityPrepare(void) {
     uint8       i;
     
     mscScsiSenseDataInit();
@@ -366,7 +364,6 @@ uint8 mscScsiReadCapacityPrepare(void) {
         csw[12] = 1;
     }
     mscState = MSCST_IN_WAIT;
-    return 1;    
 }
 
 // 未対応IN命令応答
@@ -391,13 +388,13 @@ void mscCbwParse(void) {
     // コマンドによる処理分岐
     switch (cbw[15]) {
         case SCSI_INQUIRY:
-            if (mscScsiInquiryPrepare()) return;
+            mscScsiInquiryPrepare();
             break;
         case SCSI_REQUEST_SENSE:
-            if (mscScsiRequestSensePrepare()) return;
+            mscScsiRequestSensePrepare();
             break;
         case SCSI_READ_CAPACITY_10:
-            if (mscScsiReadCapacityPrepare()) return;
+            mscScsiReadCapacityPrepare();
             break;
         case SCSI_READ_10:
         default:
