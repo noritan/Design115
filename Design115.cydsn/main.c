@@ -200,9 +200,11 @@ void echoBackUart(void) {
 // MSCデバイスのステートマシン宣言
 typedef enum MscState_ {
     MSCST_CBW_WAIT = 0,                 // CBWパケット待ち
+    MSCST_IN_PREPARE,                   // BULK-INデータ準備
     MSCST_IN_WAIT,                      // BULK-IN送信待ち
     MSCST_IN_SET,                       // BULK-INデータセット
     MSCST_IN_COMPLETE,                  // BULK-IN送信完了
+    MSCST_OUT_PREPARE,                  // BULK-OUT受信準備
     MSCST_CSW_PREPARE,                  // CSW準備
     MSCST_CSW_WAIT,                     // CSW送信待ち
     MSCST_CSW_SET,                      // CSWデータセット
@@ -321,9 +323,6 @@ void mscScsiInquiryPrepare(void) {
     for (i = 0; i < sizeof inquiryData; i++) {
         mscBufferIn[i] = inquiryData[i];
     }
-    if (mscCbwDataTransferLength > mscBufferInLength) {
-        csw[12] = 1;
-    }
     mscState = MSCST_IN_WAIT;
 }
 
@@ -367,44 +366,38 @@ void mscScsiReadCapacityPrepare(void) {
 }
 
 // 未対応IN命令応答
-void mscScsiUnknownIn(void) {
+void mscScsiUnknownInPrepare(void) {
     mscScsiInvalidCommand();
     mscBufferInLength = 0;              // Nullパケット
     csw[12] = 1;                        // Command failed
     mscState = MSCST_IN_WAIT;
 }
 
-// 未対応OUT命令応答
-void mscScsiUnknownOut(void) {
+// バッファ内のデータを一回で送信できるコマンド
+void mscScsiBufferInSet(void) {
+    uint8       size;
+    
+    // 送信すべきデータ長の計算
+    if (mscCbwDataTransferLength >= mscBufferInLength) {
+        size = mscBufferInLength;
+    } else {
+        size = mscCbwDataTransferLength;
+    }
+    // バッファを送信する
+    USBUART_LoadInEP(MSC_IN, &mscBufferIn[0], size);
+    putstr("\nSend BULK-IN : ");
+    putdec16(size, 1);
+    mscCbwDataTransferLength -= size;
+    mscBufferInLength -= size;
+    // データ長の矛盾
+    if ((mscCbwDataTransferLength > 0) || (mscBufferInLength > 0)) {
+        csw[12] = 1;
+    }
+    mscState = MSCST_CSW_PREPARE;
 }
 
-// コマンド解析
-void mscCbwParse(void) {
-    // データ転送長を保存
-    mscCbwDataTransferLength = mscGetValue32(&cbw[8]);
-    putstr("\nDataTransferLength=");
-    putdec32(mscCbwDataTransferLength, 0);
-    
-    // コマンドによる処理分岐
-    switch (cbw[15]) {
-        case SCSI_INQUIRY:
-            mscScsiInquiryPrepare();
-            break;
-        case SCSI_REQUEST_SENSE:
-            mscScsiRequestSensePrepare();
-            break;
-        case SCSI_READ_CAPACITY_10:
-            mscScsiReadCapacityPrepare();
-            break;
-        case SCSI_READ_10:
-        default:
-            if (cbw[12]) {
-                mscScsiUnknownIn();
-            } else {
-                mscScsiUnknownOut();
-            }
-            break;
-    }
+// 未対応OUT命令応答
+void mscScsiUnknownOutPrepare(void) {
 }
 
 // CBW待ち状態の処理
@@ -428,24 +421,62 @@ void mscCbwWait(void) {
         // CBWデータを表示する
         mscShowCbw();
         
-        // コマンドの解釈
+        // データ転送長を保存
+        mscCbwDataTransferLength = mscGetValue32(&cbw[8]);
+        putstr("\nDataTransferLength=");
+        putdec32(mscCbwDataTransferLength, 0);
+    
+        // データの準備へ分岐
         if (mscCbwIsValid()) {          // コマンドとして受け入れられるか？
-            mscCbwParse();              // コマンド解析
+            if (cbw[12]) {
+                mscState = MSCST_IN_PREPARE;
+            } else {
+                mscState = MSCST_OUT_PREPARE;
+            }
         }
+    }
+}
+
+// ホストへのデータ準備
+void mscInPrepare(void) {
+    // コマンドによる処理分岐
+    switch (cbw[15]) {
+        case SCSI_INQUIRY:
+            mscScsiInquiryPrepare();
+            break;
+        case SCSI_REQUEST_SENSE:
+            mscScsiRequestSensePrepare();
+            break;
+        case SCSI_READ_CAPACITY_10:
+            mscScsiReadCapacityPrepare();
+            break;
+        case SCSI_READ_10:
+        default:
+            mscScsiUnknownInPrepare();
+            break;
     }
 }
 
 // ホストへのデータ送信待ち
 void mscInWait(void) {
     if (USBUART_GetEPState(MSC_IN) & USBUART_IN_BUFFER_EMPTY) {
-        putstr("\nSend BULK-IN : ");
-        putdec16(mscBufferInLength, 0);
-        // バッファを送信する
-        USBUART_LoadInEP(MSC_IN, &mscBufferIn[0], mscBufferInLength);
-        mscCbwDataTransferLength -= mscBufferInLength;
-        if (csw[12] || (mscCbwDataTransferLength == 0)) {
-            mscState = MSCST_CSW_PREPARE;
-        }
+        mscState = MSCST_IN_SET;
+    }
+}
+
+// ホストへのデータ送信
+void mscInSet(void) {
+    // コマンドによる処理分岐
+    switch (cbw[15]) {
+        case SCSI_INQUIRY:
+        case SCSI_REQUEST_SENSE:
+        case SCSI_READ_CAPACITY_10:
+            mscScsiBufferInSet();
+            break;
+        case SCSI_READ_10:
+        default:
+            mscScsiBufferInSet();
+            break;
     }
 }
 
@@ -472,8 +503,14 @@ void mscDispatch(void) {
         case MSCST_CBW_WAIT:
             mscCbwWait();
             break;
+        case MSCST_IN_PREPARE:
+            mscInPrepare();
+            break;
         case MSCST_IN_WAIT:
             mscInWait();
+            break;
+        case MSCST_IN_SET:
+            mscInSet();
             break;
         case MSCST_CSW_PREPARE:
             mscCswPrepare();
