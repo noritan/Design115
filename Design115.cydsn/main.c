@@ -383,6 +383,7 @@ void mscScsiReadCapacityPrepare(void) {
 
 // 未対応IN命令応答
 void mscScsiUnknownInPrepare(void) {
+    mscScsiSenseDataInit();
     mscScsiInvalidCommand();
     mscBufferInLength = 0;              // Nullパケット
     csw[12] = 1;                        // Command failed
@@ -478,6 +479,10 @@ void mscScsiTestUnitReadyPrepare(void) {
 
 // 未対応NO DATA命令応答
 void mscScsiUnknownNoDataPrepare(void) {
+    mscScsiSenseDataInit();
+    mscScsiInvalidCommand();
+    csw[12] = 1;                        // Command failed
+    mscState = MSCST_CSW_PREPARE;
 }
 
 // CBW待ち状態の処理
