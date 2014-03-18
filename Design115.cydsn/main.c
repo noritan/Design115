@@ -203,11 +203,10 @@ void echoBackUart(void) {
 // MSCデバイスのステートマシン宣言
 typedef enum MscState_ {
     MSCST_CBW_WAIT = 0,                 // CBWパケット待ち
-    MSCST_IN_PREPARE,                   // BULK-INデータ準備
+    MSCST_PREPARE,                      // コマンドの準備
     MSCST_IN_WAIT,                      // BULK-IN送信待ち
     MSCST_IN_SET,                       // BULK-INデータセット
     MSCST_IN_COMPLETE,                  // BULK-IN送信完了
-    MSCST_OUT_PREPARE,                  // BULK-OUT受信準備
     MSCST_CSW_PREPARE,                  // CSW準備
     MSCST_CSW_WAIT,                     // CSW送信待ち
     MSCST_CSW_SET,                      // CSWデータセット
@@ -218,6 +217,7 @@ MscState    mscState;                   // 状態変数
 
 // SCSIコマンド
 enum ScsiCommand {
+    SCSI_TEST_UNIT_READY = 0x00,        // TEST UNIT READY
     SCSI_REQUEST_SENSE = 0x03,          // REQUEST SENSE
     SCSI_INQUIRY = 0x12,                // INQUIRY
     SCSI_READ_CAPACITY_10 = 0x25,       // READ CAPACITY(10)
@@ -470,6 +470,16 @@ void mscScsiRead10Set(void) {
 void mscScsiUnknownOutPrepare(void) {
 }
 
+// TEST UNIT READYコマンド応答
+void mscScsiTestUnitReadyPrepare(void) {
+    mscScsiSenseDataInit();    
+    mscState = MSCST_CSW_PREPARE;
+}
+
+// 未対応NO DATA命令応答
+void mscScsiUnknownNoDataPrepare(void) {
+}
+
 // CBW待ち状態の処理
 void mscCbwWait(void) {
     if (USBUART_GetEPState(MSC_OUT) & USBUART_OUT_BUFFER_FULL) {
@@ -494,21 +504,17 @@ void mscCbwWait(void) {
         // データ転送長を保存
         mscCbwDataTransferLength = mscCbwGetValue32(&cbw[8]);
         putstr("\nDataTransferLength=");
-        putdec32(mscCbwDataTransferLength, 0);
+        putdec32(mscCbwDataTransferLength, 1);
     
         // データの準備へ分岐
         if (mscCbwIsValid()) {          // コマンドとして受け入れられるか？
-            if (cbw[12]) {
-                mscState = MSCST_IN_PREPARE;
-            } else {
-                mscState = MSCST_OUT_PREPARE;
-            }
+            mscState = MSCST_PREPARE;
         }
     }
 }
 
 // ホストへのデータ準備
-void mscInPrepare(void) {
+void mscScsiPrepare(void) {
     // コマンドによる処理分岐
     switch (cbw[15]) {
         case SCSI_INQUIRY:
@@ -523,8 +529,17 @@ void mscInPrepare(void) {
         case SCSI_READ_10:
             mscScsiRead10Prepare();
             break;
+        case SCSI_TEST_UNIT_READY:
+            mscScsiTestUnitReadyPrepare();
+            break;
         default:
-            mscScsiUnknownInPrepare();
+            if (mscCbwDataTransferLength == 0) {
+                mscScsiUnknownNoDataPrepare();
+            } else if (cbw[12]) {
+                mscScsiUnknownInPrepare();
+            } else {
+                mscScsiUnknownOutPrepare();
+            }
             break;
     }
 }
@@ -577,8 +592,8 @@ void mscDispatch(void) {
         case MSCST_CBW_WAIT:
             mscCbwWait();
             break;
-        case MSCST_IN_PREPARE:
-            mscInPrepare();
+        case MSCST_PREPARE:
+            mscScsiPrepare();
             break;
         case MSCST_IN_WAIT:
             mscInWait();
