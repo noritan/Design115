@@ -214,6 +214,11 @@ typedef enum MscState_ {
     MSCST_IN_WAIT,                      // BULK-IN送信待ち
     MSCST_IN_SET,                       // BULK-INデータセット
     MSCST_IN_COMPLETE,                  // BULK-IN送信完了
+    MSCST_READ_GET,                     // READデータ読み出し待ち
+    MSCST_READ_LOAD,                    // READデータ送信待ち
+    MSCST_WRITE_READ,                   // WRITEデータ受信待ち
+    MSCST_WRITE_PUT,                    // WRITEデータ書き込み待ち
+    MSCST_IN_LOAD,                      // IN応答送信待ち
     MSCST_CSW_PREPARE,                  // CSW準備
     MSCST_CSW_WAIT,                     // CSW送信待ち
     MSCST_CSW_SET,                      // CSWデータセット
