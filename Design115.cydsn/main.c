@@ -29,6 +29,8 @@ uint8       uartRxQueue[UART_RX_QUEUE_SIZE];    // RXキュー
 uint8       uartRxCount = 0;                    // RXキューに存在するデータ数
 uint8       uartRxIndex = 0;                    // RXキューからの取り出し位置
 
+uint8       uartTxReject = 0;                   // 送信不可回数
+
 // 周期的にUSBUARTの送受信を監視する
 CY_ISR(int_uartQueue_isr) {
     // 送信制御
@@ -38,6 +40,11 @@ CY_ISR(int_uartQueue_isr) {
             USBUART_PutData(uartTxQueue, uartTxCount);
             uartZlpRequired = (uartTxCount == UART_TX_QUEUE_SIZE);
             uartTxCount = 0;
+            uartTxReject = 0;
+        } else if (++uartTxReject > 4) {
+            // バッファのデータを棄てる
+            uartTxCount = 0;
+            uartTxReject = 0;
         }
     }
     // 受信制御
