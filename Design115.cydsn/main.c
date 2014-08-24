@@ -240,6 +240,7 @@ enum ScsiCommand {
     SCSI_INQUIRY = 0x12,                // INQUIRY
     SCSI_READ_CAPACITY_10 = 0x25,       // READ CAPACITY(10)
     SCSI_READ_10 = 0x28,                // READ(10)
+    SCSI_WRITE_10 = 0x2A,               // WRITE(10)
 };
 
 // MSCデバイスの初期設定
