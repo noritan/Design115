@@ -174,6 +174,12 @@ void puthex16(uint16 num) {
     puthex8(num);
 }
 
+// 32-bit十六進数の表示
+void puthex32(uint32 num) {
+    puthex16(num >> 16);
+    puthex16(num);
+}
+
 // USBUARTに文字列を送り込む
 void putstr(const char *s) {
     // 行末まで表示する
@@ -431,6 +437,8 @@ void mscScsiRead10Prepare(void) {
     
     mscScsiSenseDataInit();
     lba = mscScsiGetValue32(&cbw[17]);
+    putstr("\nLBA=");
+    puthex32(lba);
     mscScsiAddress = lba * SECTOR_SIZE;
     mscBufferInLength = mscScsiGetValue16(&cbw[22]) * SECTOR_SIZE;
     if (mscBufferInLength > mscCbwDataTransferLength) {
