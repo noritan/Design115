@@ -447,7 +447,11 @@ void mscScsiRead10Prepare(void) {
         mscBufferInLength = 0;
         csw[12] = 1;
     }
-    mscState = MSCST_IN_WAIT;
+    mscState = MSCST_READ_GET;
+}
+
+void mscScsiRead10Get(void) {
+    mscState = MSCST_READ_LOAD;
 }
 
 void mscScsiRead10Set(void) {
@@ -470,10 +474,11 @@ void mscScsiRead10Set(void) {
     putdec16(size, 1);
     mscCbwDataTransferLength -= size;
     mscBufferInLength -= size;
-    // データ長の矛盾
+    // データ長の矛盾を検出
     if (mscCbwDataTransferLength > 0) {
         if (mscBufferInLength > 0) {
-            mscState = MSCST_IN_WAIT;
+            // 未送信データあり
+            mscState = MSCST_READ_GET;
         } else {
             csw[12] = 1;
             mscState = MSCST_CSW_PREPARE;
@@ -586,12 +591,23 @@ void mscInSet(void) {
         case SCSI_READ_CAPACITY_10:
             mscScsiBufferInSet();
             break;
-        case SCSI_READ_10:
-            mscScsiRead10Set();
-            break;
         default:
             mscScsiBufferInSet();
             break;
+    }
+}
+
+// READのデータ準備
+void mscReadGet(void) {
+    if (1) {
+        mscScsiRead10Get();
+    }
+}
+
+// READのデータ送信
+void mscReadLoad(void) {
+    if (USBUART_GetEPState(MSC_IN) & USBUART_IN_BUFFER_EMPTY) {
+        mscScsiRead10Set();
     }
 }
 
@@ -626,6 +642,12 @@ void mscDispatch(void) {
             break;
         case MSCST_IN_SET:
             mscInSet();
+            break;
+        case MSCST_READ_GET:
+            mscReadGet();
+            break;
+        case MSCST_READ_LOAD:
+            mscReadLoad();
             break;
         case MSCST_CSW_PREPARE:
             mscCswPrepare();
