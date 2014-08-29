@@ -454,9 +454,10 @@ void mscScsiRead10Get(void) {
     mscState = MSCST_READ_LOAD;
 }
 
-void mscScsiRead10Set(void) {
+uint8 mscScsiRead10Set(void) {
     uint8       size;
     uint8       i;
+    uint8       result = 0;
     
     // 送信すべきデータ長の計算
     if (mscBufferInLength >= EP_SIZE) {
@@ -478,19 +479,17 @@ void mscScsiRead10Set(void) {
     if (mscCbwDataTransferLength > 0) {
         if (mscBufferInLength > 0) {
             // 未送信データあり
-            mscState = MSCST_READ_GET;
+            result = 1;
         } else {
             csw[12] = 1;
-            mscState = MSCST_CSW_PREPARE;
         }
     } else {
         if (mscBufferInLength > 0) {
             csw[12] = 1;
-            mscState = MSCST_CSW_PREPARE;
         } else {
-            mscState = MSCST_CSW_PREPARE;
         }
     }
+    return result;
 }
 
 // 未対応OUT命令応答
@@ -607,7 +606,13 @@ void mscReadGet(void) {
 // READのデータ送信
 void mscReadLoad(void) {
     if (USBUART_GetEPState(MSC_IN) & USBUART_IN_BUFFER_EMPTY) {
-        mscScsiRead10Set();
+        if (mscScsiRead10Set()) {
+            // 未転送データあり
+            mscState = MSCST_READ_GET;
+        } else {
+            // データ転送終了
+            mscState = MSCST_CSW_PREPARE;
+        }
     }
 }
 
