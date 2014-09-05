@@ -220,6 +220,7 @@ typedef enum MscState_ {
     MSCST_IN_WAIT,                      // BULK-IN送信待ち
     MSCST_IN_SET,                       // BULK-INデータセット
     MSCST_IN_COMPLETE,                  // BULK-IN送信完了
+    MSCST_READ_START,                   // READデータ読み出し開始
     MSCST_READ_GET,                     // READデータ読み出し待ち
     MSCST_READ_LOAD,                    // READデータ送信待ち
     MSCST_WRITE_READ,                   // WRITEデータ受信待ち
@@ -596,14 +597,21 @@ void mscInSet(void) {
     }
 }
 
-// READのデータ準備
+// READデータ読み出し開始
+void mscReadStart(void) {
+    if (1) {
+        mscState = MSCST_READ_GET;
+    }
+}
+
+// READデータ読み出し待ち
 void mscReadGet(void) {
     if (1) {
         mscScsiRead10Get();
     }
 }
 
-// READのデータ送信
+// READデータ送信待ち
 void mscReadLoad(void) {
     if (USBUART_GetEPState(MSC_IN) & USBUART_IN_BUFFER_EMPTY) {
         if (mscScsiRead10Set()) {
@@ -647,6 +655,9 @@ void mscDispatch(void) {
             break;
         case MSCST_IN_SET:
             mscInSet();
+            break;
+        case MSCST_READ_START:
+            mscReadStart();
             break;
         case MSCST_READ_GET:
             mscReadGet();
