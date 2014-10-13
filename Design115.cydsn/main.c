@@ -352,7 +352,14 @@ static uint8 const CYCODE inquiryData[36u] = {
 void mscScsiInquiryPrepare(void) {
     uint8       i;
     
+    // SENSEデータの初期設定
     mscScsiSenseDataInit();
+
+    // コマンドの表示
+    putstr("\nINQUIRY(Length=");
+    putdec32(mscCbwDataTransferLength, 1);
+    putstr(")");
+    
     mscBufferInLength = sizeof inquiryData;
     for (i = 0; i < sizeof inquiryData; i++) {
         mscBufferIn[i] = inquiryData[i];
@@ -372,6 +379,11 @@ void mscScsiInvalidCommand(void) {
 void mscScsiRequestSensePrepare(void) {
     uint8       i;
     
+    // コマンドの表示
+    putstr("\nREQUEST_SENSE(Length=");
+    putdec32(mscCbwDataTransferLength, 1);
+    putstr(")");
+    
     mscBufferInLength = sizeof senseData;
     for (i = 0; i < sizeof senseData; i++) {
         mscBufferIn[i] = senseData[i];
@@ -390,7 +402,14 @@ static uint8 const CYCODE capacityData[8] = {
 void mscScsiReadCapacityPrepare(void) {
     uint8       i;
     
+    //SENSEデータの初期設定
     mscScsiSenseDataInit();
+
+    // コマンドの表示
+    putstr("\nREAD_CAPACITY(Length=");
+    putdec32(mscCbwDataTransferLength, 1);
+    putstr(")");
+
     mscBufferInLength = sizeof capacityData;
     for (i = 0; i < sizeof capacityData; i++) {
         mscBufferIn[i] = capacityData[i];
@@ -403,7 +422,15 @@ void mscScsiReadCapacityPrepare(void) {
 
 // 未対応IN命令応答
 void mscScsiUnknownInPrepare(void) {
+    // SENSEデータの初期設定
     mscScsiSenseDataInit();
+
+    // CBWデータと転送長を表示する
+    putstr("\nUNKNOWN_IN(Length=");
+    putdec32(mscCbwDataTransferLength, 1);
+    putstr(")");
+    mscShowCbw();
+
     mscScsiInvalidCommand();
     mscBufferInLength = 0;              // Nullパケット
     csw[12] = 1;                        // Command failed
@@ -422,8 +449,9 @@ void mscScsiBufferInSet(void) {
     }
     // バッファを送信する
     USBUART_LoadInEP(MSC_IN, &mscBufferIn[0], size);
-    putstr("\nSend BULK-IN : ");
+    putstr("; IN(");
     putdec16(size, 1);
+    putstr(")");
     mscCbwDataTransferLength -= size;
     mscBufferInLength -= size;
     // データ長の矛盾
@@ -437,10 +465,20 @@ void mscScsiBufferInSet(void) {
 void mscScsiRead10Prepare(void) {
     uint32      lba;
     
+    // SENSEデータの初期設定
     mscScsiSenseDataInit();
+
+    // パラメータの収集
     lba = mscScsiGetValue32(&cbw[17]);
-    putstr("\nLBA=");
+
+    // コマンドの表示
+    putstr("\nREAD_10(LBA=");
     puthex32(lba);
+    putstr(", Length=");
+    putdec32(mscCbwDataTransferLength, 1);
+    putstr(")");
+    
+    // データ位置とデータ長の計算
     mscScsiAddress = lba * SECTOR_SIZE;
     mscBufferInLength = mscScsiGetValue16(&cbw[22]) * SECTOR_SIZE;
     if (mscBufferInLength > mscCbwDataTransferLength) {
@@ -472,7 +510,7 @@ uint8 mscScsiRead10Set(void) {
     }
     // バッファを送信する
     USBUART_LoadInEP(MSC_IN, &mscBufferIn[0], size);
-    putstr("\nSend READ(10) : ");
+    putstr(";");
     putdec16(size, 1);
     mscCbwDataTransferLength -= size;
     mscBufferInLength -= size;
@@ -495,17 +533,37 @@ uint8 mscScsiRead10Set(void) {
 
 // 未対応OUT命令応答
 void mscScsiUnknownOutPrepare(void) {
+    // CBWデータと転送長を表示する
+    putstr("\nUNKNOWN_OUT(Length=");
+    putdec32(mscCbwDataTransferLength, 1);
+    putstr(")");
+    mscShowCbw();
 }
 
 // TEST UNIT READYコマンド応答
 void mscScsiTestUnitReadyPrepare(void) {
+    //SENSEデータの初期設定
     mscScsiSenseDataInit();    
+
+    // コマンドの表示
+    putstr("\nTEST_UNIT_READY(Length=");
+    putdec32(mscCbwDataTransferLength, 1);
+    putstr(")");
+    
     mscState = MSCST_CSW_PREPARE;
 }
 
 // 未対応NO DATA命令応答
 void mscScsiUnknownNoDataPrepare(void) {
+    // SENSEデータの初期設定
     mscScsiSenseDataInit();
+
+    // CBWデータと転送長を表示する
+    putstr("\nUNKNOWN_NULL(Length=");
+    putdec32(mscCbwDataTransferLength, 1);
+    putstr(")");
+    mscShowCbw();
+        
     mscScsiInvalidCommand();
     csw[12] = 1;                        // Command failed
     mscState = MSCST_CSW_PREPARE;
@@ -529,13 +587,8 @@ void mscCbwWait(void) {
         // CSWの初期値を設定する
         csw[12] = 0;
 
-        // CBWデータを表示する
-        mscShowCbw();
-        
         // データ転送長を保存
         mscCbwDataTransferLength = mscCbwGetValue32(&cbw[8]);
-        putstr("\nDataTransferLength=");
-        putdec32(mscCbwDataTransferLength, 1);
     
         // データの準備へ分岐
         if (mscCbwIsValid()) {          // コマンドとして受け入れられるか？
@@ -633,8 +686,9 @@ void mscCswPrepare(void) {
 // CSWデータの送信
 void mscCswWait(void) {
     if (USBUART_GetEPState(MSC_IN) & USBUART_IN_BUFFER_EMPTY) {
-        putstr("\nSend CSW : ");
+        putstr("; CSW(");
         puthex8(csw[12]);
+        putstr(")");
         // バッファを送信する
         USBUART_LoadInEP(MSC_IN, &csw[0], sizeof csw);
         mscState = MSCST_CBW_WAIT;
