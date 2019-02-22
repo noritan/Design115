@@ -8,6 +8,21 @@
 
 # Temp directry
 *.cydsn/codegentemp/*
+*.cydsn/Export/PSoCCreatorExportIDE.xml
+*.cycdx
+*.cyfit
+*.svd
+*.cyprj.*
+*.cywrk.*
 
 # Results
+*.cydsn/Generated_Source/*
+*.cydsn/CortexM3/*
+*.cydsn/CortexM0/*
 *.cydsn/DP8051/*
+*_timing.html
+*_datasheet.pdf
+
+# Archives
+Backup/*
+Archive/*
